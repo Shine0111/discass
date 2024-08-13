@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import * as paths from "@/paths";
+import paths from "@/paths";
 
 const createPostSchema = z.object({
   title: z.string().min(3),
@@ -59,8 +59,34 @@ export async function createPost(
       },
     };
   }
-  return {
-    errors: {},
-  };
+
+  let post: Post;
+  try {
+    post = await db.post.create({
+      data: {
+        title: result.data.title,
+        content: result.data.content,
+        userId: session.user.id,
+        topicId: topic.id,
+      },
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return {
+        errors: {
+          _form: [err.message],
+        },
+      };
+    } else {
+      return {
+        errors: {
+          _form: ["Failed to create post."],
+        },
+      };
+    }
+  }
+
   // TODO: Revalidate the topic show page
+  revalidatePath(paths.topicShow(slug));
+  redirect(paths.postShow(slug, post.id));
 }
